@@ -38,7 +38,7 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // // 2. Call Gemini API
+      // // 2. Call API
       const result = await sendMessage(text, attachment);
 
       // // 3. Add Model Response
@@ -51,8 +51,6 @@ const App: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, botMessage]);
-
-
 
     } catch (error) {
       console.error("Failed to generate response", error);

@@ -29,7 +29,7 @@ export const sendMessage = async (
       }
     }
 
-    const response = await fetch("/message", {
+    const response = await fetch("http://127.0.0.1:8000/chat", {
       method: "POST",
       body: formData,
     });
@@ -38,11 +38,21 @@ export const sendMessage = async (
       throw new Error("Request failed");
     }
 
-    const data = await response.json();
+    const blob = await response.blob();
+    
+    const file = new File([blob], "hed-result.png", {
+      type: blob.type || "image/png",
+    });
+
+    const response_image: Attachment = {
+      file,
+      previewUrl: URL.createObjectURL(blob),
+      mimeType: file.type,
+    };
 
     return {
-      text: data.text,
-      imageAttachment: data.image
+      text: "Here is the segmented image based on your prompt.",
+      imageAttachment: response_image,
     };
 
   } catch (error) {
