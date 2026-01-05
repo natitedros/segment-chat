@@ -1,40 +1,11 @@
-from typing import Union
+from typing import Optional, Union
 import cv2
 import numpy as np
+import base64
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-
-class CropLayer(object):
-    def __init__(self, params, blobs):
-        self.startX = 0
-        self.startY = 0
-        self.endX = 0
-        self.endY = 0
-
-    def getMemoryShapes(self, inputs):
-        (inputShape, targetShape) = (inputs[0], inputs[1])
-        (batchSize, numChannels) = (inputShape[0], inputShape[1])
-        (H, W) = (targetShape[2], targetShape[3])
-
-        self.startX = int((inputShape[3] - targetShape[3]) / 2)
-        self.startY = int((inputShape[2] - targetShape[2]) / 2)
-        self.endX = self.startX + W
-        self.endY = self.startY + H
-
-        return [[batchSize, numChannels, H, W]]
-
-    def forward(self, inputs):
-        return [inputs[0][:, :, self.startY:self.endY,
-                self.startX:self.endX]]
-
-# Load pre-trained model
-protoPath = "hed_model/deploy.prototxt"
-modelPath = "hed_model/hed_pretrained_bsds.caffemodel"
-net = cv2.dnn.readNetFromCaffe(protoPath, modelPath)
-
-# Register crop layer
-cv2.dnn_registerLayer("Crop", CropLayer)
+from hed_model.hed_inference import load_hed_model,generate_hed_image
 
 app = FastAPI()
 
@@ -51,10 +22,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+def startup_event():
+    load_hed_model()
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
-
 
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: Union[str, None] = None):
@@ -62,11 +36,16 @@ def read_item(item_id: int, q: Union[str, None] = None):
 
 @app.post("/chat")
 async def segment_image(
-    prompt: str = Form(...),
-    image: UploadFile = File(...)
+    prompt: str = Form(""),
+    image: Optional[UploadFile] = File(None)
 ):
-    image_bytes = await image.read()
+    if image is None and prompt.strip() == "":
+        return {"text": "Please provide an image or a prompt."}
     
+    elif image is None:
+        return {"text": "Prompt received, but no image provided. Please upload an image for segmentation."}
+    
+    image_bytes = await image.read()
     # bytes -> numpy buffer
     nparr = np.frombuffer(image_bytes, np.uint8)
     
@@ -76,21 +55,19 @@ async def segment_image(
     if img is None:
         raise ValueError("Could not decode the image. Please upload a valid image file.")
     
-    (H, W) = img.shape[:2]
-    blob = cv2.dnn.blobFromImage(img, scalefactor=0.7, size=(W, H),
-                             mean=(105, 117, 123),
-                             swapRB=False, crop=False)
-    
-    # Perform edge detection
-    net.setInput(blob)
-    hed = net.forward()
-    hed = hed[0, 0, :, :]
-    hed = (255 * hed).astype("uint8")
+    hed = generate_hed_image(img)
     
     success, encoded_image = cv2.imencode('.png', hed)
     if not success:
         raise ValueError("Could not encode the image to PNG format.")
-    return Response(
-        content=encoded_image.tobytes(),
-        media_type="image/png"
+    
+    encoded_png_bytes = encoded_image.tobytes()
+    encoded_base64 = base64.b64encode(encoded_png_bytes).decode('utf-8')
+    
+    return JSONResponse(
+        content={
+            "text": "HED edge detection completed.",
+            "imageAttachment": encoded_base64,
+            "mime_type": "image/png"
+        }
     )

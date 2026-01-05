@@ -12,12 +12,14 @@ const cleanBase64 = (base64Data: string): string => {
 };
 
 export const sendMessage = async (
-  prompt: string,
+  prompt?: string,
   attachment?: Attachment
 ): Promise<{ text: string; imageAttachment?: Attachment }> => {
   try {
     
     const formData = new FormData();
+
+    if (!prompt) prompt = "";
     formData.append("prompt", prompt);
 
     if (attachment) {
@@ -38,20 +40,23 @@ export const sendMessage = async (
       throw new Error("Request failed");
     }
 
-    const blob = await response.blob();
-    
-    const file = new File([blob], "hed-result.png", {
-      type: blob.type || "image/png",
-    });
-
+    const data = await response.json();
+    if (data.imageAttachment === undefined) {
+      return { text: data.text };
+    }
     const response_image: Attachment = {
-      file,
-      previewUrl: URL.createObjectURL(blob),
-      mimeType: file.type,
+      file: base64ToFile(
+        data.imageAttachment,
+        "segmented_image.png",
+        data.mime_type
+      ),
+      base64Data: data.imageAttachment,
+      previewUrl: `data:${data.mime_type};base64,${data.imageAttachment}`,
+      mimeType: data.mime_type,
     };
 
     return {
-      text: "Here is the segmented image based on your prompt.",
+      text: data.text,
       imageAttachment: response_image,
     };
 
@@ -72,3 +77,18 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onerror = (error) => reject(error);
   });
 };
+
+function base64ToFile(
+  base64: string,
+  filename: string,
+  mimeType: string
+): File {
+  const byteString = atob(base64);
+  const byteArray = new Uint8Array(byteString.length);
+
+  for (let i = 0; i < byteString.length; i++) {
+    byteArray[i] = byteString.charCodeAt(i);
+  }
+
+  return new File([byteArray], filename, { type: mimeType });
+}

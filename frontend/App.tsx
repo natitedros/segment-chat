@@ -22,9 +22,9 @@ const App: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (text: string, attachment?: Attachment) => {
+  const handleSendMessage = async (text?: string, attachment?: Attachment) => {
     const userMessageId = generateId();
-    
+    console.log("text:", text);
     // 1. Add User Message
     const newUserMessage: Message = {
       id: userMessageId,
@@ -40,7 +40,6 @@ const App: React.FC = () => {
     try {
       // // 2. Call API
       const result = await sendMessage(text, attachment);
-
       // // 3. Add Model Response
       const botMessage: Message = {
         id: generateId(),
