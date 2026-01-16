@@ -1,11 +1,15 @@
 from typing import Optional, Union
-import cv2
-import numpy as np
 import base64
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from hed_model.hed_inference import load_hed_model,generate_hed_image
+import asyncio
+import os
+from dedalus_labs import AsyncDedalus, DedalusRunner
+from dotenv import load_dotenv
+from hed_model.hed_inference import load_hed_model, generate_hed_image, generate_threshold_image, generate_colored_object_image, generate_colored_filtered_areas_image
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -46,23 +50,22 @@ async def segment_image(
         return {"text": "Prompt received, but no image provided. Please upload an image for segmentation."}
     
     image_bytes = await image.read()
-    # bytes -> numpy buffer
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    
-    # decode numpy buffer to image
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    
-    if img is None:
+    if not image_bytes:
+        raise ValueError("Uploaded file is empty")
+
+    # encode uploaded bytes as base64 string for the async HED functions
+    encoded_input_image = base64.b64encode(image_bytes).decode('utf-8')
+    if encoded_input_image is None:
         raise ValueError("Could not decode the image. Please upload a valid image file.")
-    
-    hed = generate_hed_image(img)
-    
-    success, encoded_image = cv2.imencode('.png', hed)
-    if not success:
-        raise ValueError("Could not encode the image to PNG format.")
-    
-    encoded_png_bytes = encoded_image.tobytes()
-    encoded_base64 = base64.b64encode(encoded_png_bytes).decode('utf-8')
+    # client = AsyncDedalus(api_key=os.getenv("DEDALUS_API_KEY"))
+    # runner = DedalusRunner(client)
+    # response = await runner.run(
+    #     input=prompt + f" Here's the encode image as base64 to use when to call the tools. Do not process it! Just use it as an argument to call the tools: {encoded_input_image}",
+    #     model="openai/gpt-4o-mini",
+    #     tools=[generate_hed_image, generate_threshold_image, generate_colored_object_image, generate_colored_filtered_areas_image]
+    # )
+    # print(response)
+    encoded_base64 = await generate_hed_image(encoded_input_image)
     
     return JSONResponse(
         content={

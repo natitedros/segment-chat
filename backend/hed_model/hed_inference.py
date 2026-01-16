@@ -1,7 +1,26 @@
 import cv2
 import numpy as np
+import base64
 
 _net = None  # will be initialized on startup
+
+
+def base64_to_numpy(base64_string: str) -> np.ndarray:
+    # Remove data URL prefix if present
+    if "," in base64_string:
+        base64_string = base64_string.split(",")[1]
+
+    # Decode base64 to bytes
+    image_bytes = base64.b64decode(base64_string)
+
+    # Convert bytes to numpy buffer
+    np_buffer = np.frombuffer(image_bytes, dtype=np.uint8)
+
+    # Decode image buffer into NumPy array
+    image = cv2.imdecode(np_buffer, cv2.IMREAD_COLOR)
+
+    return image
+
 class CropLayer(object):
     def __init__(self, params, blobs):
         self.startX = self.startY = 0
@@ -39,13 +58,10 @@ def load_hed_model():
 
     print("HED model loaded")
 
-def generate_hed_image(img: np.ndarray) -> np.ndarray:
-    """
-    Runs HED edge detection on a BGR OpenCV image.
-
-    Returns:
-        uint8 numpy array (H, W) with values [0, 255]
-    """
+async def generate_hed_image(img: str) -> str:
+    
+    img = base64_to_numpy(img)
+    
     if img is None:
         raise ValueError("Input image is None")
 
@@ -65,16 +81,17 @@ def generate_hed_image(img: np.ndarray) -> np.ndarray:
 
     hed = hed[0, 0, :, :]
     hed = (255 * hed).astype("uint8")
+    success, encoded_image = cv2.imencode('.png', hed)
+    if not success:
+        raise ValueError("Could not encode the image to PNG format.")
+    
+    encoded_png_bytes = encoded_image.tobytes()
+    encoded_base64 = base64.b64encode(encoded_png_bytes).decode('utf-8')
+    return encoded_base64
 
-    return hed
-
-def generate_threshold_image(img: np.ndarray) -> np.ndarray:
-    """
-    Runs HED edge detection on a BGR OpenCV image.
-
-    Returns:
-        uint8 numpy array (H, W) with values [0, 255]
-    """
+async def generate_threshold_image(img: str) -> str:
+    
+    img = base64_to_numpy(img)
     if img is None:
         raise ValueError("Input image is None")
 
@@ -97,15 +114,17 @@ def generate_threshold_image(img: np.ndarray) -> np.ndarray:
     blur = cv2.GaussianBlur(hed, (3, 3), 0)
     thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-    return thresh
+    success, encoded_image = cv2.imencode('.png', thresh)
+    if not success:
+        raise ValueError("Could not encode the image to PNG format.")
 
-def generate_colored_object_image(img: np.ndarray) -> np.ndarray:
-    """
-    Runs HED edge detection on a BGR OpenCV image.
+    encoded_png_bytes = encoded_image.tobytes()
+    encoded_base64 = base64.b64encode(encoded_png_bytes).decode('utf-8')
+    return encoded_base64
 
-    Returns:
-        uint8 numpy array (H, W) with values [0, 255]
-    """
+async def generate_colored_object_image(img: str) -> str:
+
+    img = base64_to_numpy(img)
     if img is None:
         raise ValueError("Input image is None")
 
@@ -134,10 +153,17 @@ def generate_colored_object_image(img: np.ndarray) -> np.ndarray:
     colors[0] = [0, 0, 0]
     false_colors = colors[labels]
 
-    return false_colors
+    success, encoded_image = cv2.imencode('.png', false_colors)
+    if not success:
+        raise ValueError("Could not encode the image to PNG format.")
 
-def generate_colored_filtered_areas_image(img: np.ndarray) -> np.ndarray:
-    
+    encoded_png_bytes = encoded_image.tobytes()
+    encoded_base64 = base64.b64encode(encoded_png_bytes).decode('utf-8')
+    return encoded_base64
+
+async def generate_colored_filtered_areas_image(img: str) -> str:
+
+    img = base64_to_numpy(img)
     if img is None:
         raise ValueError("Input image is None")
 
@@ -172,4 +198,9 @@ def generate_colored_filtered_areas_image(img: np.ndarray) -> np.ndarray:
             cv2.drawMarker(false_colors_area_filtered, (int(centroid[0]), int(centroid[1])),
                         color=(255, 255, 255), markerType=cv2.MARKER_CROSS)
 
-    return false_colors_area_filtered
+    success, encoded_image = cv2.imencode('.png', false_colors_area_filtered)
+    if not success:
+        raise ValueError("Could not encode the image to PNG format.")
+    encoded_png_bytes = encoded_image.tobytes()
+    encoded_base64 = base64.b64encode(encoded_png_bytes).decode('utf-8')
+    return encoded_base64

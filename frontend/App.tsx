@@ -80,7 +80,7 @@ const App: React.FC = () => {
           </div>
         </div>
         <a 
-          href="https://ai.google.dev" 
+          href="https://github.com/natitedros/segment-chat" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
