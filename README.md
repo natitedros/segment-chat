@@ -3,6 +3,9 @@
 Segment-Chat is a small demo that combines a web frontend and a FastAPI backend to perform image segmentation using a pretrained HED (Holistically-Nested Edge Detection) model and a chat-style interface. The project originally experimented with an MCP server integration (Dedalus) for orchestrating model/tool calls, and includes optimizations to keep heavy image work local to the backend for low latency.
 
 **Demo Images**
+<img width="933" height="404" alt="Screenshot 2026-01-16 151908" src="https://github.com/user-attachments/assets/bdcc3a72-a925-4d34-ae5b-df2c57fa1cac" />
+<img width="942" height="746" alt="Screenshot 2026-01-16 151933" src="https://github.com/user-attachments/assets/38533dd9-297b-48ba-b3ce-16eeab3bdb47" />
+<img width="942" height="766" alt="Screenshot 2026-01-16 151947" src="https://github.com/user-attachments/assets/1e7ed427-9207-4aee-8ba9-b9693f16876e" />
 
 **Repository layout**
 
